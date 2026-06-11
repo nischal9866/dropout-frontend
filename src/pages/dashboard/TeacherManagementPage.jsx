@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import axios from '../../api/axios';
 import toast from 'react-hot-toast';
-import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon, ClipboardIcon } from '@heroicons/react/24/outline';
 
 const TeacherManagementPage = () => {
   const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [newTeacherPassword, setNewTeacherPassword] = useState('');
+  const [newTeacherName, setNewTeacherName] = useState('');
   const [editingTeacher, setEditingTeacher] = useState(null);
   const [formData, setFormData] = useState({
     username: '',
@@ -17,7 +20,8 @@ const TeacherManagementPage = () => {
     employee_id: '',
     qualification: '',
     department: '',
-    subjects_taught: ''
+    subjects_taught: '',
+    password: '' // Add password field
   });
 
   useEffect(() => {
@@ -42,12 +46,23 @@ const TeacherManagementPage = () => {
       if (editingTeacher) {
         await axios.put(`accounts/admin/teachers/${editingTeacher.id}/update/`, formData);
         toast.success('Teacher updated successfully');
+        fetchTeachers();
+        closeModal();
       } else {
-        await axios.post('accounts/admin/teachers/create/', formData);
+        // For new teacher, send the password along with other data
+        const response = await axios.post('accounts/admin/teachers/create/', formData);
+        
+        // Show password modal with generated password
+        if (response.data.generated_password) {
+          setNewTeacherPassword(response.data.generated_password);
+          setNewTeacherName(`${formData.first_name} ${formData.last_name}`);
+          setShowPasswordModal(true);
+        }
+        
         toast.success('Teacher created successfully');
+        fetchTeachers();
+        closeModal();
       }
-      fetchTeachers();
-      closeModal();
     } catch (error) {
       const errors = error.response?.data;
       if (errors) {
@@ -81,8 +96,9 @@ const TeacherManagementPage = () => {
         phone_number: teacher.phone_number,
         employee_id: teacher.employee_id,
         qualification: teacher.qualification,
-        department: teacher.teacher_profile?.department || '',
-        subjects_taught: teacher.teacher_profile?.subjects_taught || ''
+        department: teacher.department || '',
+        subjects_taught: teacher.subjects_taught || '',
+        password: ''
       });
     } else {
       setEditingTeacher(null);
@@ -95,7 +111,8 @@ const TeacherManagementPage = () => {
         employee_id: '',
         qualification: '',
         department: '',
-        subjects_taught: ''
+        subjects_taught: '',
+        password: ''
       });
     }
     setShowModal(true);
@@ -111,6 +128,11 @@ const TeacherManagementPage = () => {
       ...formData,
       [e.target.name]: e.target.value
     });
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Password copied to clipboard!');
   };
 
   if (loading) {
@@ -189,6 +211,10 @@ const TeacherManagementPage = () => {
                 <span className="font-medium text-gray-700 w-24">Qualification:</span>
                 <span className="text-gray-600">{teacher.qualification}</span>
               </div>
+              <div className="flex items-center text-sm">
+                <span className="font-medium text-gray-700 w-24">Department:</span>
+                <span className="text-gray-600">{teacher.department || 'Not assigned'}</span>
+              </div>
             </div>
 
             <div className="mt-4 pt-3 border-t">
@@ -208,10 +234,10 @@ const TeacherManagementPage = () => {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Create/Edit Teacher Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-slide-up">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center p-6 border-b">
               <h2 className="text-2xl font-bold text-gray-900">
                 {editingTeacher ? 'Edit Teacher' : 'Add New Teacher'}
@@ -326,15 +352,15 @@ const TeacherManagementPage = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Department *
+                    Department
                   </label>
                   <input
                     type="text"
                     name="department"
                     value={formData.department}
                     onChange={handleChange}
-                    required
                     className="input-field"
+                    placeholder="e.g., Computer Science"
                   />
                 </div>
 
@@ -346,11 +372,30 @@ const TeacherManagementPage = () => {
                     name="subjects_taught"
                     value={formData.subjects_taught}
                     onChange={handleChange}
-                    rows="3"
+                    rows="2"
                     className="input-field"
                     placeholder="e.g., Mathematics, Physics, Chemistry"
                   />
                 </div>
+
+                {!editingTeacher && (
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Password (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      className="input-field"
+                      placeholder="Leave empty to auto-generate"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      If left empty, a random password will be generated and shown after creation.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end space-x-3 pt-4">
@@ -369,6 +414,67 @@ const TeacherManagementPage = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Password Display Modal */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full animate-slide-up">
+            <div className="p-6">
+              <div className="text-center mb-4">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Teacher Account Created!</h3>
+                <p className="text-gray-600">
+                  Teacher <span className="font-semibold">{newTeacherName}</span> has been created successfully.
+                </p>
+              </div>
+
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                <p className="text-sm font-semibold text-yellow-800 mb-2">Login Credentials:</p>
+                <div className="space-y-2">
+                  <div>
+                    <p className="text-xs text-gray-600">Username:</p>
+                    <p className="font-mono text-sm font-semibold">{formData.username}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-600">Password:</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-mono text-sm font-semibold">{newTeacherPassword}</p>
+                      <button
+                        onClick={() => copyToClipboard(newTeacherPassword)}
+                        className="p-1 text-gray-500 hover:text-primary-600 transition-colors"
+                      >
+                        <ClipboardIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                <p className="text-xs text-blue-800">
+                  ⚠️ Please save these credentials and share them with the teacher securely.
+                  The teacher should change their password after first login.
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  setShowPasswordModal(false);
+                  setNewTeacherPassword('');
+                  setNewTeacherName('');
+                }}
+                className="btn-primary w-full"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

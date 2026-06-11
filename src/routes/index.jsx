@@ -7,16 +7,14 @@ import DashboardPage from '../pages/dashboard/DashboardPage';
 import TeacherManagementPage from '../pages/dashboard/TeacherManagementPage';
 import ProfilePage from '../pages/auth/ProfilePage';
 import ChangePasswordPage from '../pages/auth/ChangePasswordPage';
+import PredictionPage from '../pages/prediction/PredictionPage';
 
 export const router = createBrowserRouter([
   {
     path: '/login',
     element: <LoginPage />,
   },
-  {
-    path: '/register',
-    element: <RegisterPage />,
-  },
+
   {
     path: '/',
     element: (
@@ -32,6 +30,10 @@ export const router = createBrowserRouter([
       {
         path: 'dashboard',
         element: <DashboardPage />,
+      },
+      {
+        path: 'prediction',
+        element: <PredictionPage />,
       },
       {
         path: 'teachers',
